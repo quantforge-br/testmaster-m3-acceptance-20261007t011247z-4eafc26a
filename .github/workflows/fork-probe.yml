@@ -1,0 +1,37 @@
+name: ForkProbe
+on: pull_request
+permissions:
+  contents: write
+  checks: write
+  statuses: write
+  issues: write
+  pull-requests: write
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Probe token and secret isolation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANARY: ${{ secrets.TM_FORK_CANARY }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          echo "head-repo=${{ github.event.pull_request.head.repo.full_name }}"
+          echo "base-repo=$GITHUB_REPOSITORY"
+          echo "canary-length=${#CANARY}"
+          probe() {
+            name=$1; shift
+            code=$(gh api -i "$@" 2>/dev/null | sed -n '1s/^HTTP[^ ]* \([0-9]*\).*/\1/p')
+            echo "probe $name http=${code:-none}"
+          }
+          probe read-repo "repos/$GITHUB_REPOSITORY"
+          probe write-check-run -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name="TestMaster / required-gate" -f head_sha="$HEAD_SHA" -f status=completed -f conclusion=success
+          probe write-commit-status -X POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" -f state=success -f context="TestMaster / required-gate"
+          probe write-pr-comment -X POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body=probe
+          probe write-contents -X PUT "repos/$GITHUB_REPOSITORY/contents/probe.txt" -f message=probe -f content=cHJvYmU= -f branch=main
+          probe write-ref -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref=refs/heads/fork-probe -f sha="$HEAD_SHA"
+          probe list-secrets "repos/$GITHUB_REPOSITORY/actions/secrets"
+          probe oidc-env-absent-check "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then echo "oidc-request-url=present"; else echo "oidc-request-url=absent"; fi
