@@ -9,25 +9,6 @@
   },
   "jobs": {
     "execute": {
-      "if": "${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}",
-      "runs-on": "ubuntu-24.04",
-      "timeout-minutes": 30,
-      "permissions": {
-        "contents": "read",
-        "actions": "read"
-      },
-      "env": {
-        "TESTMASTER_OFFLINE": "true",
-        "TESTMASTER_MANIFEST_SHA256": "3d79df4e6676d51816401bc5cc6edb86b5b1977473dc60f94f423e3a74c91f2d"
-      },
-      "outputs": {
-        "artifact-id": "${{ steps.upload.outputs.artifact-id }}",
-        "artifact-sha256": "${{ steps.upload.outputs.artifact-digest }}",
-        "report-hash": "${{ steps.testmaster.outputs.report-hash }}",
-        "job-id": "${{ steps.identity.outputs.job-id }}",
-        "assessed-sha": "${{ github.event.pull_request.head.sha || github.sha }}",
-        "checkout-sha": "${{ github.sha }}"
-      },
       "steps": [
         {
           "name": "Configure TestMaster paths",
@@ -117,22 +98,28 @@
             "retention-days": 3
           }
         }
-      ]
-    },
-    "publish": {
-      "needs": "execute",
-      "if": "${{ always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) && needs.execute.outputs.artifact-id != '' }}",
+      ],
       "runs-on": "ubuntu-24.04",
       "timeout-minutes": 30,
       "permissions": {
         "contents": "read",
-        "actions": "read",
-        "checks": "write"
+        "actions": "read"
       },
       "env": {
         "TESTMASTER_OFFLINE": "true",
         "TESTMASTER_MANIFEST_SHA256": "3d79df4e6676d51816401bc5cc6edb86b5b1977473dc60f94f423e3a74c91f2d"
       },
+      "outputs": {
+        "artifact-id": "${{ steps.upload.outputs.artifact-id }}",
+        "artifact-sha256": "${{ steps.upload.outputs.artifact-digest }}",
+        "report-hash": "${{ steps.testmaster.outputs.report-hash }}",
+        "job-id": "${{ steps.identity.outputs.job-id }}",
+        "assessed-sha": "${{ github.event.pull_request.head.sha || github.sha }}",
+        "checkout-sha": "${{ github.sha }}"
+      }
+    },
+    "publish": {
+      "needs": "execute",
       "steps": [
         {
           "name": "Configure TestMaster paths",
@@ -177,7 +164,18 @@
           },
           "run": "node .testmaster-trusted/tools/dist/github-action/publish.js"
         }
-      ]
+      ],
+      "runs-on": "ubuntu-24.04",
+      "timeout-minutes": 30,
+      "permissions": {
+        "contents": "read",
+        "actions": "read",
+        "checks": "write"
+      },
+      "env": {
+        "TESTMASTER_OFFLINE": "true",
+        "TESTMASTER_MANIFEST_SHA256": "3d79df4e6676d51816401bc5cc6edb86b5b1977473dc60f94f423e3a74c91f2d"
+      }
     }
   }
 }
